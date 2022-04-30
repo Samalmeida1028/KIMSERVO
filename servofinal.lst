@@ -1,0 +1,295 @@
+AS65 Assembler for R6502 [1.42].                                     Page    1
+------------------------------ .\servofinal.asm ------------------------------
+
+277 lines read, no errors in pass 1.
+                             ;SAMUEL ALMEIDA
+                             ;197DP 4/27/22
+                             ;RUNNING SERVOS WITH CONTINUOUS INTERRUPT ROUTINE
+                             ;CAN BE ASSEMBLED FOR 6502 BY DOWNLOADING ASSEMBL
+                             
+                             ;==============MEMORY ADDRESSES============
+                             
+                             ;USED FOR ADDRESSING THE PORTS AND SUBROUTINES IN
+                             
+1700 =                       PortA		equ	$1700
+1701 =                       PortADDR	equ	$1701
+1741 =                       RIOTDDR         equ     $1741
+000f =                       OUT             equ     $0F
+0010 =                       DIRECTION       equ     $10
+1f6a =                       GETKEY		equ     $1F6A
+1efe =                       AK              equ     $1EFE
+171c =                       INT1            equ     $171C
+171d =                       INT8            equ     $171D
+171e =                       INT64           equ     $171E
+171f =                       INT1024         equ     $171F
+00f9 =                       FLAG            equ     $F9
+                             
+                             
+                             ;===================CONTROLS==============
+                             
+                             ;MY SERVO FOR UP AND DOWN IS REVERSE SO I SWITCHE
+                             
+0006 =                       UPC             equ     $06
+0002 =                       DOWNC           equ     $02
+0001 =                       LEFTC           equ     $01
+0003 =                       RIGHTC          equ     $03
+0005 =                       OPENC           equ     $05
+0007 =                       CLOSEC          equ     $07
+000f =                       TESTC           equ     $0F
+                             
+                             ;=============SERVO TIMING=======================
+                             
+                             ;USED TO CHANGE THE SPEED OF THE SERVOS AND THE P
+                             
+002f =                       PERIOD          equ     $2F
+007d =                       SPEEDUP         equ     $7D
+00fa =                       SPEEDDOWN       equ     $FA
+00bb =                       OFFPULSE        equ     $BB
+                             
+                             
+                             ;================================================
+                             ;========================INIT====================
+                             
+                             ;SETS THE PORT DDR FOR PORT A AND RIOT AND TURNS 
+                             
+0200 =                               org $0200
+                                     code
+0200 : d8               [ 2] INIT:   cld
+0201 : 78               [ 2]         sei
+0202 : a900             [ 2]         lda     #$00
+0204 : 8d4117           [ 4]         sta     RIOTDDR
+0207 : 8d0017           [ 4]         sta     PortA
+020a : a9ff             [ 2]         lda     #$FF
+020c : 8d0117           [ 4]         sta     PortADDR
+020f : a900             [ 2]         lda     #$00
+0211 : 8dfe17           [ 4]         sta     $17FE
+AS65 Assembler for R6502 [1.42].                                     Page    2
+------------------------------ .\servofinal.asm ------------------------------
+
+0214 : a904             [ 2]         lda     #$04
+0216 : 8dff17           [ 4]         sta     $17FF
+0219 : 4c2002           [ 3]         jmp     MAIN
+                             
+                             ;================================================
+                             ;=======================MAIN LOOP================
+                             
+                             ;the main loop just runs and listens for a key to
+                             
+0220 =                               org $0220
+0220 : a900             [ 2] MAIN:   lda     #$00
+0222 : 8d4117           [ 4]         sta     RIOTDDR   ;initializes the keyboa
+0225 : 206a1f           [ 6]         jsr     GETKEY    ;checks to see what key
+0228 : c901             [ 2]         cmp     #LEFTC    ;checks for if the key 
+022a : f01b             [ 3]         beq     L
+022c : c903             [ 2]         cmp     #RIGHTC
+022e : f01d             [ 3]         beq     R
+0230 : c906             [ 2]         cmp     #UPC      ;checks for if the key 
+0232 : f01f             [ 3]         beq     U
+0234 : c902             [ 2]         cmp     #DOWNC
+0236 : f021             [ 3]         beq     D
+0238 : c905             [ 2]         cmp     #OPENC
+023a : f023             [ 3]         beq     O
+023c : c907             [ 2]         cmp     #CLOSEC
+023e : f025             [ 3]         beq     C
+0240 : c90f             [ 2]         cmp     #TESTC
+0242 : f027             [ 3]         beq     T
+0244 : 4c2002           [ 3]         jmp     MAIN      ;keeps running if no ke
+0247 : 200003           [ 6] L:      jsr     LEFT      ;these statements are j
+024a : 4c2002           [ 3]         jmp     MAIN
+                                     end
+024d : 201403           [ 6] R:      jsr     RIGHT
+0250 : 4c2002           [ 3]         jmp     MAIN
+0253 : 202803           [ 6] U:      jsr     UP
+0256 : 4c2002           [ 3]         jmp     MAIN
+0259 : 203c03           [ 6] D:      jsr     DOWN
+025c : 4c2002           [ 3]         jmp     MAIN
+025f : 205003           [ 6] O:      jsr     OPEN
+0262 : 4c2002           [ 3]         jmp     MAIN
+0265 : 206403           [ 6] C:      jsr     CLOSE
+0268 : 4c2002           [ 3]         jmp     MAIN
+026b : 207803           [ 6] T:      jsr     TEST
+026e : 4c2002           [ 3]         jmp     MAIN
+                             
+                             ;=============================================
+                             ;=============DIRECTIONS======================
+                             
+                             ;the directions specify the output pin and the pu
+                             ;in PortA, 4 is the third pin in PortA, then SPEE
+                             ; I'm using a /8 on a 1Mhz clock, which means I w
+                                                                              
+                             ;I flip between a /8 and a /1024 for the period, 
+                             ;that the servos need, the actual pulse is contro
+                             ;all of these are just initialisers for the servo
+                             ;you can also add a servo if you use a different 
+                             
+0300 =                               org $0300
+0300 : a901             [ 2] LEFT:   lda     #$01         ;this is used for th
+0302 : 850f             [ 3]         sta     OUT
+0304 : a9fa             [ 2]         lda     #SPEEDDOWN
+0306 : 8510             [ 3]         sta     DIRECTION    ;this register is us
+0308 : a912             [ 2]         lda     #$12
+AS65 Assembler for R6502 [1.42].                                     Page    3
+------------------------------ .\servofinal.asm ------------------------------
+
+030a : 852f             [ 3]         sta     PERIOD      
+030c : 8d1f17           [ 4]         sta     INT1024
+030f : 58               [ 2]         cli
+0310 : 209003           [ 6]         jsr     SERVO        ;jumps to servo rout
+0313 : 60               [ 6]         rts
+                             
+                             
+0314 : a901             [ 2] RIGHT:  lda     #$01         ;this is used for th
+0316 : 850f             [ 3]         sta     OUT
+0318 : a97d             [ 2]         lda     #SPEEDUP
+031a : 8510             [ 3]         sta     DIRECTION    ;this register is us
+031c : a913             [ 2]         lda     #$13
+031e : 852f             [ 3]         sta     PERIOD      
+0320 : 8d1f17           [ 4]         sta     INT1024
+0323 : 58               [ 2]         cli
+0324 : 209003           [ 6]         jsr     SERVO        ;jumps to servo rout
+0327 : 60               [ 6]         rts
+                             
+                             
+0328 : a902             [ 2] UP:     lda     #$02         ;this is used for th
+032a : 850f             [ 3]         sta     OUT
+032c : a9fa             [ 2]         lda     #SPEEDDOWN
+032e : 8510             [ 3]         sta     DIRECTION    ;this register is us
+0330 : a912             [ 2]         lda     #$12
+0332 : 852f             [ 3]         sta     PERIOD    
+0334 : 8d1f17           [ 4]         sta     INT1024
+0337 : 58               [ 2]         cli
+0338 : 209003           [ 6]         jsr     SERVO        ;jumps to servo rout
+033b : 60               [ 6]         rts
+                             
+                             
+033c : a902             [ 2] DOWN:   lda     #$02         ;this is used for th
+033e : 850f             [ 3]         sta     OUT
+0340 : a97d             [ 2]         lda     #SPEEDUP
+0342 : 8510             [ 3]         sta     DIRECTION    ;this register is us
+0344 : a913             [ 2]         lda     #$13
+0346 : 852f             [ 3]         sta     PERIOD  
+0348 : 8d1f17           [ 4]         sta     INT1024
+034b : 58               [ 2]         cli
+034c : 209003           [ 6]         jsr     SERVO        ;jumps to servo rout
+034f : 60               [ 6]         rts
+                             
+                             
+0350 : a904             [ 2] OPEN:   lda     #$04         ;this is used for th
+0352 : 850f             [ 3]         sta     OUT
+0354 : a9fa             [ 2]         lda     #SPEEDDOWN
+0356 : 8510             [ 3]         sta     DIRECTION    ;this register is us
+0358 : a912             [ 2]         lda     #$12
+035a : 852f             [ 3]         sta     PERIOD    
+035c : 8d1f17           [ 4]         sta     INT1024
+035f : 58               [ 2]         cli
+0360 : 209003           [ 6]         jsr     SERVO        ;jumps to servo rout
+0363 : 60               [ 6]         rts
+                             
+0364 : a904             [ 2] CLOSE:  lda     #$04         ;this is used for th
+0366 : 850f             [ 3]         sta     OUT
+0368 : a97d             [ 2]         lda     #SPEEDUP
+036a : 8510             [ 3]         sta     DIRECTION    ;this register is us
+036c : a913             [ 2]         lda     #$13
+036e : 852f             [ 3]         sta     PERIOD  
+0370 : 8d1f17           [ 4]         sta     INT1024
+0373 : 58               [ 2]         cli
+AS65 Assembler for R6502 [1.42].                                     Page    4
+------------------------------ .\servofinal.asm ------------------------------
+
+0374 : 209003           [ 6]         jsr     SERVO        ;jumps to servo rout
+0377 : 60               [ 6]         rts
+                             
+0378 : a9ff             [ 2] TEST:   lda     #$FF         ;this is used for al
+037a : 850f             [ 3]         sta     OUT
+037c : a9bb             [ 2]         lda     #OFFPULSE
+037e : 8510             [ 3]         sta     DIRECTION    ;this register is us
+0380 : a913             [ 2]         lda     #$13
+0382 : 852f             [ 3]         sta     PERIOD  
+0384 : 8d1f17           [ 4]         sta     INT1024
+0387 : 58               [ 2]         cli
+0388 : 209003           [ 6]         jsr     SERVO        ;jumps to servo rout
+038b : 60               [ 6]         rts
+                             
+                             ;================================================
+                             ;===================SERVO CONTROL================
+                             
+                             ;the servo control uses two interupts to flip a p
+                             ;it first starts a timer for ~20ms and then on in
+                             ;whatever specified pin to high, then sets a new 
+                             ;the new interrupt toggles the port low then jump
+                             ;this continues as long as the user is pressing d
+                             ;send a 1.5 ms pulse to tell the servo to stop, t
+                             
+0390 =                               org $0390
+0390 : 20fe1e           [ 6] SERVO:  jsr     AK           ;KIM subroutine to c
+0393 : c900             [ 2]         cmp     #$00         ;if no key is presse
+0395 : f003             [ 3]         beq     EXIT         ;if AK finds no key 
+0397 : 4c9003           [ 3]         jmp     SERVO        ;else keep running s
+039a : a900             [ 2] EXIT:   lda     #$00         ;this sets the inter
+039c : 8dfe17           [ 4]         sta     $17FE
+039f : a904             [ 2]         lda     #$04
+03a1 : 8dff17           [ 4]         sta     $17FF
+03a4 : a9f9             [ 2]         lda     #FLAG
+03a6 : c9ec             [ 2] END:    cmp     #$EC         ;waits for a to have
+                                                             ;EC is only set t
+03a8 : f003             [ 3]         beq     LEAVE
+03aa : 4ca603           [ 3]         jmp     END
+03ad : a900             [ 2] LEAVE:  lda     #$00
+03af : 8d0017           [ 4]         sta     PortA
+03b2 : a50a             [ 3]         lda     $A
+03b4 : 78               [ 2]         sei
+03b5 : 60               [ 6]         rts
+                             
+                             ;================================================
+                             ;====================INTERRUPTS==================
+                             
+                             ;these interrupts toggle between two states to ou
+                             ;you can change the duty cycle by changing the SP
+                             
+0400 =                               org $0400            ;used for the pulse 
+0400 : c9f9             [ 2] ONPULSE:cmp     #FLAG        ;this is a flag to s
+0402 : f019             [ 3]         beq     EPULSE       ;short for END PULSE
+0404 : 850a             [ 3]         sta     $A           ;stores A in case we
+0406 : a940             [ 2]         lda     #$40         ;setting the IRQ to 
+0408 : 8dfe17           [ 4]         sta     $17FE        ;^
+040b : a904             [ 2]         lda     #$04         ;^^
+040d : 8dff17           [ 4]         sta     $17FF        ;^^^
+0410 : a510             [ 3]         lda     DIRECTION    ;this is used for th
+0412 : 8d1d17           [ 4]         sta     INT8         ;stores it in the /6
+0415 : a50f             [ 3]         lda     OUT          ;loads a with the pi
+0417 : 8d0017           [ 4]         sta     PortA        ;stores that value t
+AS65 Assembler for R6502 [1.42].                                     Page    5
+------------------------------ .\servofinal.asm ------------------------------
+
+041a : a50a             [ 3]         lda     $A
+041c : 40               [ 6]         rti     
+041d : 850a             [ 3] EPULSE: sta     $A           ;this is taken after
+041f : a50f             [ 3]         lda     OUT
+0421 : 8d0017           [ 4]         sta     PortA
+0424 : a940             [ 2]         lda     #$40         ;the rest is the sam
+0426 : 8dfe17           [ 4]         sta     $17FE
+0429 : a904             [ 2]         lda     #$04
+042b : 8dff17           [ 4]         sta     $17FF
+042e : a9bb             [ 2]         lda     #OFFPULSE
+0430 : 8d1d17           [ 4]         sta     INT8
+0433 : a50a             [ 3]         lda     $A
+0435 : 40               [ 6]         rti
+                                     end
+                             
+0440 =                               org $0440             ;this is the second
+0440 : 850a             [ 3] TOFF:   sta     $A           ;this code is the sa
+0442 : a900             [ 2]         lda     #$00         ;sets the IRQ back t
+0444 : 8d0017           [ 4]         sta     PortA
+0447 : 8dfe17           [ 4]         sta     $17FE
+044a : a904             [ 2]         lda     #$04
+044c : 8dff17           [ 4]         sta     $17FF
+044f : a52f             [ 3]         lda     PERIOD
+0451 : 8d1f17           [ 4]         sta     INT1024      ;this loads the peri
+0454 : a50a             [ 3]         lda     $A
+0456 : c9f9             [ 2]         cmp     #FLAG
+0458 : f001             [ 3]         beq     EPULSE2      ;this just checks to
+045a : 40               [ 6]         rti
+045b : a9ec             [ 2] EPULSE2:lda     #$EC         ;this sets A to $EC 
+045d : 40               [ 6]         rti
+                                     end
+No errors in pass 2.
